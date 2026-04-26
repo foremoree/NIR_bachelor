@@ -4,4 +4,4 @@
 - https://github.com/AllenXiangX/SnowflakeNet
 - https://github.com/yuxumin/PoinTr
 - https://github.com/qinglew/PCN-PyTorch
-Отчет за семестр - МакаровЯМ_6302_Отчет_НИР_бакалавра_2025
+Отчет за семестр - МакаровЯМ_6302_Отчет_НИР_бакалавра_2026
