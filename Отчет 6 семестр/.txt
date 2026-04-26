@@ -1,1 +1,7 @@
-
+Ссылка для скачивания готовой базы данных находится в README.
+Код для создания базы данных из 3d моделей формата .obj - create_dataset.py
+Ссылки на github моделей, использованных в семестре:
+- https://github.com/AllenXiangX/SnowflakeNet
+- https://github.com/yuxumin/PoinTr
+- https://github.com/qinglew/PCN-PyTorch
+Отчет за семестр - МакаровЯМ_6302_Отчет_НИР_бакалавра_2025
