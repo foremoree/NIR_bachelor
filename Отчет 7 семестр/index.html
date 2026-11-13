@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Reconstruction Pipeline</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --secondary: #16a34a;
+            --secondary-hover: #15803d;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 40px 20px; display: flex; justify-content: center; }
+
+        .container { max-width: 1000px; width: 100%; }
+
+        .header-panel { background: var(--card-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 24px; }
+
+        h1 { text-align: center; margin-bottom: 30px; font-size: 24px; color: var(--text-main); }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+        .card { border: 2px dashed var(--border-color); border-radius: 8px; padding: 24px; text-align: center; background-color: #f9fafb; transition: 0.2s ease-in-out; }
+        .card:hover { border-color: var(--primary); background-color: #f0fdf4; }
+        .card h2 { font-size: 18px; margin-bottom: 12px; }
+        .card p { font-size: 14px; color: var(--text-muted); margin-bottom: 20px; min-height: 40px; }
+
+        .file-input { width: 100%; margin-bottom: 12px; font-size: 14px; }
+
+        .mode-select {
+            width: 100%;
+            padding: 8px 12px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            color: var(--text-main);
+            background-color: white;
+            cursor: pointer;
+        }
+        .mode-select:focus { outline: none; border-color: var(--primary); }
+
+        .btn { width: 100%; padding: 10px 16px; font-size: 14px; font-weight: 600; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+        .btn-blue { background-color: var(--primary); }
+        .btn-blue:hover { background-color: var(--primary-hover); }
+        .btn-green { background-color: var(--secondary); }
+        .btn-green:hover { background-color: var(--secondary-hover); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .viewer-panel { background: var(--card-bg); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; display: flex; flex-direction: column; }
+        .viewer-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+        #canvas-container { width: 100%; height: 500px; background-color: #111827; position: relative; }
+
+        #loading-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(17, 24, 39, 0.8); color: white; display: flex; justify-content: center; align-items: center; font-weight: bold; display: none; }
+
+        .download-panel {
+            padding: 15px 20px;
+            background-color: #f9fafb;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-download {
+            padding: 8px 16px;
+            background-color: #4b5563;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            display: none;
+        }
+
+        .btn-download:hover { background-color: #374151; }
+
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header-panel">
+            <h1>3D-реконструкция</h1>
+
+            <div class="grid">
+                <div class="card">
+                    <h2 style="color: var(--primary);">1. Подготовка облака точек</h2>
+                    <p>Загрузите <b>.obj</b>. Выберите режим генерации.</p>
+                    <input type="file" id="fileObj" class="file-input" accept=".obj">
+
+                    <select id="genMode" class="mode-select">
+                        <option value="defect">С дефектами (Окклюзия)</option>
+                        <option value="full">Полное</option>
+                    </select>
+
+                    <button class="btn btn-blue" id="btnGen">Сгенерировать облако (.ply)</button>
+                </div>
+
+                <div class="card">
+                    <h2 style="color: var(--secondary);">2. Нейросетевая реконструкция</h2>
+                    <p>Загрузите облако (<b>.ply</b>).</p>
+                    <input type="file" id="filePly" class="file-input" accept=".ply">
+                    <select id="genMode2" class="mode-select">
+                        <option value="demo">модель</option>
+                    </select>
+                    <button class="btn btn-green" id="btnRec">Запустить инференс (.obj)</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="viewer-panel">
+            <div class="viewer-header">
+                <span id="viewer-title">Интерактивный просмотр</span>
+                <span id="point-count" style="font-size: 12px; color: var(--text-muted);"></span>
+            </div>
+            <div id="canvas-container">
+                <div id="loading-overlay">Рендеринг...</div>
+            </div>
+
+            <!-- НОВАЯ ПАНЕЛЬ СКАЧИВАНИЯ -->
+            <div class="download-panel">
+                <span id="download-info" style="font-size: 13px; color: var(--text-muted);">Результат не сгенерирован</span>
+                <button id="btnDownload" class="btn-download">Скачать результат</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
+        import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+        camera.position.set(0, 0, 3);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 20, 10);
+        scene.add(directionalLight);
+
+        let currentModel = null;
+        let currentDownloadUrl = null; // Храним ссылку на файл для скачивания
+        let currentFilename = null;    // Храним имя файла для скачивания
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        function loadModelToScene(url, isPointCloud, isDefectMode = true) {
+            const overlay = document.getElementById('loading-overlay');
+            overlay.style.display = 'flex';
+
+            if (currentModel) {
+                scene.remove(currentModel);
+                currentModel = null;
+            }
+
+            if (isPointCloud) {
+                const loader = new PLYLoader();
+                loader.load(url, (geometry) => {
+                    geometry.computeVertexNormals();
+                    const material = new THREE.PointsMaterial({
+                        color: isDefectMode ? 0xef4444 : 0x3b82f6,
+                        size: 0.02
+                    });
+                    currentModel = new THREE.Points(geometry, material);
+                    centerAndAdd(currentModel);
+
+                    const titleText = isDefectMode ? "Неполное облако точек (С дефектами)" : "Полное облако точек (Идеал)";
+                    document.getElementById('viewer-title').innerText = titleText;
+                    document.getElementById('point-count').innerText = `${geometry.attributes.position.count} точек`;
+                    overlay.style.display = 'none';
+                });
+            } else {
+                const loader = new OBJLoader();
+                loader.load(url, (object) => {
+                    object.traverse((child) => {
+                        if (child.isMesh) {
+                            child.material = new THREE.MeshStandardMaterial({
+                                color: 0x10b981,
+                                roughness: 0.4,
+                                metalness: 0.1,
+                                side: THREE.DoubleSide
+                            });
+                        }
+                    });
+                    currentModel = object;
+                    centerAndAdd(currentModel);
+                    document.getElementById('viewer-title').innerText = "Реконструированный меш (Результат)";
+                    document.getElementById('point-count').innerText = "";
+                    overlay.style.display = 'none';
+                });
+            }
+        }
+
+        function centerAndAdd(object) {
+            const box = new THREE.Box3().setFromObject(object);
+            const center = box.getCenter(new THREE.Vector3());
+            object.position.sub(center);
+            scene.add(object);
+        }
+
+        async function processFile(endpoint, inputId, btnId, isPointCloudResult) {
+            const fileInput = document.getElementById(inputId);
+            const btn = document.getElementById(btnId);
+            const btnDownload = document.getElementById('btnDownload');
+            const downloadInfo = document.getElementById('download-info');
+
+            if (fileInput.files.length === 0) {
+                alert('Пожалуйста, выберите файл!');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            let isDefectMode = true;
+            if (inputId === 'fileObj') {
+                const modeValue = document.getElementById('genMode').value;
+                formData.append('mode', modeValue);
+                isDefectMode = (modeValue === 'defect');
+            }
+
+            const originalText = btn.innerText;
+            btn.innerText = 'Обработка...';
+            btn.disabled = true;
+            document.getElementById('loading-overlay').style.display = 'flex';
+
+            // Скрываем кнопку скачивания пока идет загрузка
+            btnDownload.style.display = 'none';
+            downloadInfo.innerText = "Генерация файла...";
+
+            try {
+                const response = await fetch(endpoint, { method: 'POST', body: formData });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || 'Ошибка сервера');
+                }
+
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = isPointCloudResult ? 'cloud.ply' : 'reconstructed.obj';
+                if (contentDisposition && contentDisposition.includes('filename=')) {
+                    filename = contentDisposition.split('filename=')[1].replace(/["']/g, '');
+                }
+
+                const blob = await response.blob();
+
+                // Освобождаем старую ссылку, если она была, чтобы не забивать память
+                if (currentDownloadUrl) {
+                    window.URL.revokeObjectURL(currentDownloadUrl);
+                }
+
+                currentDownloadUrl = window.URL.createObjectURL(blob);
+                currentFilename = filename;
+
+                // Загружаем в 3D сцену
+                loadModelToScene(currentDownloadUrl, isPointCloudResult, isDefectMode);
+
+                // Обновляем панель скачивания, но НЕ качаем автоматически
+                downloadInfo.innerText = `Готов к скачиванию: ${filename} (${(blob.size / 1024).toFixed(1)} KB)`;
+                btnDownload.style.display = 'block';
+
+            } catch (error) {
+                alert(error.message);
+                document.getElementById('loading-overlay').style.display = 'none';
+                downloadInfo.innerText = "Ошибка генерации";
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+                fileInput.value = "";
+            }
+        }
+
+        // Обработчик для новой кнопки скачивания
+        document.getElementById('btnDownload').addEventListener('click', () => {
+            if (currentDownloadUrl && currentFilename) {
+                const a = document.createElement('a');
+                a.href = currentDownloadUrl;
+                a.download = currentFilename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            }
+        });
+
+        document.getElementById('btnGen').addEventListener('click', () => {
+            processFile('/api/generate_partial', 'fileObj', 'btnGen', true);
+        });
+
+        document.getElementById('btnRec').addEventListener('click', () => {
+            processFile('/api/reconstruct', 'filePly', 'btnRec', false);
+        });
+    </script>
+</body>
+</html>
