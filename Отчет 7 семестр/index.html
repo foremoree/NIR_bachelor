@@ -139,7 +139,6 @@
                 <div id="loading-overlay">Рендеринг...</div>
             </div>
 
-            <!-- НОВАЯ ПАНЕЛЬ СКАЧИВАНИЯ -->
             <div class="download-panel">
                 <span id="download-info" style="font-size: 13px; color: var(--text-muted);">Результат не сгенерирован</span>
                 <button id="btnDownload" class="btn-download">Скачать результат</button>
@@ -174,8 +173,8 @@
         scene.add(directionalLight);
 
         let currentModel = null;
-        let currentDownloadUrl = null; // Храним ссылку на файл для скачивания
-        let currentFilename = null;    // Храним имя файла для скачивания
+        let currentDownloadUrl = null;
+        let currentFilename = null;
 
         function animate() {
             requestAnimationFrame(animate);
@@ -270,7 +269,6 @@
             btn.disabled = true;
             document.getElementById('loading-overlay').style.display = 'flex';
 
-            // Скрываем кнопку скачивания пока идет загрузка
             btnDownload.style.display = 'none';
             downloadInfo.innerText = "Генерация файла...";
 
@@ -289,7 +287,6 @@
 
                 const blob = await response.blob();
 
-                // Освобождаем старую ссылку, если она была, чтобы не забивать память
                 if (currentDownloadUrl) {
                     window.URL.revokeObjectURL(currentDownloadUrl);
                 }
@@ -297,10 +294,8 @@
                 currentDownloadUrl = window.URL.createObjectURL(blob);
                 currentFilename = filename;
 
-                // Загружаем в 3D сцену
                 loadModelToScene(currentDownloadUrl, isPointCloudResult, isDefectMode);
 
-                // Обновляем панель скачивания, но НЕ качаем автоматически
                 downloadInfo.innerText = `Готов к скачиванию: ${filename} (${(blob.size / 1024).toFixed(1)} KB)`;
                 btnDownload.style.display = 'block';
 
@@ -315,7 +310,6 @@
             }
         }
 
-        // Обработчик для новой кнопки скачивания
         document.getElementById('btnDownload').addEventListener('click', () => {
             if (currentDownloadUrl && currentFilename) {
                 const a = document.createElement('a');
